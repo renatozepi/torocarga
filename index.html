@@ -24,8 +24,8 @@
 
     .app {
       width: 100%;
-      max-width: 430px;
-      background: rgba(255, 255, 255, 0.92);
+      max-width: 460px;
+      background: rgba(255, 255, 255, 0.94);
       border-radius: 28px;
       padding: 24px;
       box-shadow: 0 24px 60px rgba(70, 40, 120, 0.18);
@@ -45,7 +45,7 @@
 
     .title {
       font-size: 15px;
-      font-weight: 700;
+      font-weight: 800;
       margin-bottom: 8px;
     }
 
@@ -87,7 +87,7 @@
       background: transparent;
       color: #6c5b86;
       cursor: pointer;
-      font-weight: 700;
+      font-weight: 800;
     }
 
     .cargo button.active {
@@ -101,31 +101,62 @@
       padding: 17px;
       background: #211536;
       color: white;
-      font-weight: 800;
+      font-weight: 900;
       cursor: pointer;
       box-shadow: 0 14px 30px rgba(33, 21, 54, 0.22);
     }
 
-    .result {
+    .summary {
       margin-top: 18px;
       padding: 18px;
       border-radius: 20px;
       background: #f6f2ff;
       border: 1px solid #e4d9ff;
-      text-align: center;
       display: none;
+    }
+
+    .row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 8px;
+    }
+
+    .row:last-child {
+      margin-bottom: 0;
+    }
+
+    .label {
+      font-size: 14px;
+      color: #6c5b86;
+      font-weight: 800;
+    }
+
+    .value {
+      font-size: 22px;
+      font-weight: 950;
+      color: #211536;
+      text-align: right;
     }
 
     .price {
       font-size: 36px;
-      font-weight: 900;
-      margin-top: 4px;
+      font-weight: 950;
     }
 
-    .small {
-      font-size: 14px;
-      color: #6c5b86;
-      margin-top: 4px;
+    .map-preview-wrap {
+      margin-top: 16px;
+      display: none;
+    }
+
+    #previewMap {
+      width: 100%;
+      height: 280px;
+      border-radius: 22px;
+      overflow: hidden;
+      background: #eeeeee;
+      border: 1px solid #e4d9ff;
     }
 
     .modal {
@@ -161,7 +192,7 @@
 
     .modal-title {
       font-size: 20px;
-      font-weight: 900;
+      font-weight: 950;
       flex: 1;
     }
 
@@ -171,7 +202,7 @@
       background: #f2edf9;
       color: #211536;
       cursor: pointer;
-      font-weight: 900;
+      font-weight: 950;
     }
 
     #searchBox {
@@ -186,7 +217,7 @@
       margin-bottom: 12px;
     }
 
-    #map {
+    #pickerMap {
       width: 100%;
       height: 360px;
       border-radius: 20px;
@@ -199,7 +230,7 @@
       padding: 15px;
       background: #6f3df4;
       color: white;
-      font-weight: 800;
+      font-weight: 900;
       cursor: pointer;
     }
 
@@ -209,6 +240,27 @@
       font-size: 14px;
       text-align: center;
       display: none;
+      font-weight: 700;
+    }
+
+    @media (max-width: 480px) {
+      body {
+        padding: 14px;
+        align-items: flex-start;
+      }
+
+      .app {
+        padding: 20px;
+        border-radius: 24px;
+      }
+
+      #pickerMap {
+        height: 320px;
+      }
+
+      #previewMap {
+        height: 240px;
+      }
     }
   </style>
 </head>
@@ -240,10 +292,21 @@
 
     <div id="error" class="error"></div>
 
-    <div id="result" class="result">
-      <div class="title">Total</div>
-      <div id="price" class="price">S/ 0</div>
-      <div id="distance" class="small"></div>
+    <div id="summary" class="summary">
+      <div class="row">
+        <div class="label">Distancia</div>
+        <div id="distanceValue" class="value">0.00 km</div>
+      </div>
+
+      <div id="priceRow" class="row" style="display: none;">
+        <div class="label">Total</div>
+        <div id="priceValue" class="value price">S/ 0</div>
+      </div>
+    </div>
+
+    <div id="previewWrap" class="map-preview-wrap">
+      <div class="title">Ruta</div>
+      <div id="previewMap"></div>
     </div>
   </main>
 
@@ -255,20 +318,27 @@
       </div>
 
       <input id="searchBox" type="text" placeholder="Dirección" />
-      <div id="map"></div>
+      <div id="pickerMap"></div>
       <button class="use" onclick="saveLocation()">Usar</button>
     </div>
   </section>
 
   <script>
-    let map;
-    let marker;
+    let pickerMap;
+    let previewMap;
+
+    let pickerMarker;
+    let originMarker;
+    let destinationMarker;
+
     let autocomplete;
     let geocoder;
     let directionsService;
+    let previewDirectionsRenderer;
 
     let activeField = null;
     let selectedTemp = null;
+    let currentDistanceKm = null;
 
     const locations = {
       origin: null,
@@ -283,28 +353,37 @@
       heavy: 32
     };
 
+    const DEFAULT_LOCATION = {
+      address: "Av. Sánchez Cerro, Piura, Perú",
+      lat: -5.19378,
+      lng: -80.6245
+    };
+
     function initMaps() {
       geocoder = new google.maps.Geocoder();
       directionsService = new google.maps.DirectionsService();
 
-      const defaultCenter = { lat: -12.0464, lng: -77.0428 };
+      const defaultCenter = {
+        lat: DEFAULT_LOCATION.lat,
+        lng: DEFAULT_LOCATION.lng
+      };
 
-      map = new google.maps.Map(document.getElementById("map"), {
+      pickerMap = new google.maps.Map(document.getElementById("pickerMap"), {
         center: defaultCenter,
-        zoom: 13,
+        zoom: 16,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: false
       });
 
-      marker = new google.maps.Marker({
-        map,
+      pickerMarker = new google.maps.Marker({
+        map: pickerMap,
         position: defaultCenter,
         draggable: true
       });
 
-      marker.addListener("dragend", () => {
-        const pos = marker.getPosition();
+      pickerMarker.addListener("dragend", () => {
+        const pos = pickerMarker.getPosition();
 
         setTempLocation({
           lat: pos.lat(),
@@ -312,11 +391,25 @@
         }, true);
       });
 
-      map.addListener("click", (event) => {
+      pickerMap.addListener("click", (event) => {
         setTempLocation({
           lat: event.latLng.lat(),
           lng: event.latLng.lng()
         }, true);
+      });
+
+      previewMap = new google.maps.Map(document.getElementById("previewMap"), {
+        center: defaultCenter,
+        zoom: 13,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false
+      });
+
+      previewDirectionsRenderer = new google.maps.DirectionsRenderer({
+        map: previewMap,
+        suppressMarkers: true,
+        preserveViewport: false
       });
 
       autocomplete = new google.maps.places.Autocomplete(
@@ -342,9 +435,9 @@
           lng: position.lng
         };
 
-        marker.setPosition(position);
-        map.setCenter(position);
-        map.setZoom(16);
+        pickerMarker.setPosition(position);
+        pickerMap.setCenter(position);
+        pickerMap.setZoom(16);
       });
     }
 
@@ -354,33 +447,31 @@
       document.getElementById("modalTitle").textContent =
         field === "origin" ? "Origen" : "Destino";
 
-      document.getElementById("searchBox").value = "";
-
       const saved = locations[field];
 
       const position = saved
         ? { lat: saved.lat, lng: saved.lng }
-        : { lat: -12.0464, lng: -77.0428 };
+        : { lat: DEFAULT_LOCATION.lat, lng: DEFAULT_LOCATION.lng };
 
       selectedTemp = saved
         ? { ...saved }
         : {
-            address: "",
-            lat: position.lat,
-            lng: position.lng
+            address: DEFAULT_LOCATION.address,
+            lat: DEFAULT_LOCATION.lat,
+            lng: DEFAULT_LOCATION.lng
           };
+
+      document.getElementById("searchBox").value = saved
+        ? saved.address
+        : DEFAULT_LOCATION.address;
 
       document.getElementById("modal").classList.add("show");
 
       setTimeout(() => {
-        google.maps.event.trigger(map, "resize");
-        map.setCenter(position);
-        marker.setPosition(position);
-
-        if (saved) {
-          document.getElementById("searchBox").value = saved.address;
-          map.setZoom(16);
-        }
+        google.maps.event.trigger(pickerMap, "resize");
+        pickerMap.setCenter(position);
+        pickerMarker.setPosition(position);
+        pickerMap.setZoom(16);
       }, 100);
     }
 
@@ -397,8 +488,8 @@
         lng: position.lng
       };
 
-      marker.setPosition(position);
-      map.setCenter(position);
+      pickerMarker.setPosition(position);
+      pickerMap.setCenter(position);
 
       if (!reverse) return;
 
@@ -422,7 +513,10 @@
       btn.textContent = selectedTemp.address || "Ubicación seleccionada";
       btn.classList.remove("empty");
 
+      document.getElementById("priceRow").style.display = "none";
+
       closePicker();
+      updateRoute();
     }
 
     function setLoad(type) {
@@ -431,6 +525,73 @@
       document.querySelectorAll(".cargo button").forEach((btn) => {
         btn.classList.toggle("active", btn.dataset.load === type);
       });
+
+      if (currentDistanceKm !== null) {
+        document.getElementById("priceRow").style.display = "none";
+      }
+    }
+
+    function updateRoute(callback = null) {
+      hideError();
+
+      if (!locations.origin || !locations.destination) return;
+
+      const origin = {
+        lat: locations.origin.lat,
+        lng: locations.origin.lng
+      };
+
+      const destination = {
+        lat: locations.destination.lat,
+        lng: locations.destination.lng
+      };
+
+      document.getElementById("previewWrap").style.display = "block";
+      document.getElementById("summary").style.display = "block";
+
+      setTimeout(() => {
+        google.maps.event.trigger(previewMap, "resize");
+      }, 100);
+
+      directionsService.route(
+        {
+          origin,
+          destination,
+          travelMode: google.maps.TravelMode.DRIVING
+        },
+        (response, status) => {
+          if (status !== "OK") {
+            showError("No se pudo calcular la ruta.");
+            return;
+          }
+
+          previewDirectionsRenderer.setDirections(response);
+
+          if (originMarker) originMarker.setMap(null);
+          if (destinationMarker) destinationMarker.setMap(null);
+
+          originMarker = new google.maps.Marker({
+            map: previewMap,
+            position: origin,
+            label: "A"
+          });
+
+          destinationMarker = new google.maps.Marker({
+            map: previewMap,
+            position: destination,
+            label: "B"
+          });
+
+          const legs = response.routes[0].legs;
+          const meters = legs.reduce((sum, leg) => sum + leg.distance.value, 0);
+          currentDistanceKm = meters / 1000;
+
+          document.getElementById("distanceValue").textContent =
+            `${currentDistanceKm.toFixed(2)} km`;
+
+          if (callback) callback(currentDistanceKm);
+        }
+      );
     }
 
     function calculate() {
@@ -441,44 +602,29 @@
         return;
       }
 
-      directionsService.route(
-        {
-          origin: {
-            lat: locations.origin.lat,
-            lng: locations.origin.lng
-          },
-          destination: {
-            lat: locations.destination.lat,
-            lng: locations.destination.lng
-          },
-          travelMode: google.maps.TravelMode.DRIVING
-        },
-        (response, status) => {
-          if (status !== "OK") {
-            showError("No se pudo calcular la ruta.");
-            return;
-          }
+      if (currentDistanceKm === null) {
+        updateRoute(showPrice);
+        return;
+      }
 
-          const legs = response.routes[0].legs;
-          const meters = legs.reduce((sum, leg) => sum + leg.distance.value, 0);
-          const km = meters / 1000;
+      showPrice(currentDistanceKm);
+    }
 
-          const raw = km * rates[loadType];
-          const minimum = Math.max(raw, 40);
-          const rounded = Math.round(minimum / 5) * 5;
+    function showPrice(km) {
+      const raw = km * rates[loadType];
+      const minimum = Math.max(raw, 40);
+      const rounded = Math.round(minimum / 5) * 5;
 
-          document.getElementById("price").textContent = `S/ ${rounded}`;
-          document.getElementById("distance").textContent = `${km.toFixed(1)} km`;
-          document.getElementById("result").style.display = "block";
-        }
-      );
+      document.getElementById("summary").style.display = "block";
+      document.getElementById("priceRow").style.display = "flex";
+      document.getElementById("priceValue").textContent = `S/ ${rounded}`;
+      document.getElementById("distanceValue").textContent = `${km.toFixed(2)} km`;
     }
 
     function showError(message) {
       const error = document.getElementById("error");
       error.textContent = message;
       error.style.display = "block";
-      document.getElementById("result").style.display = "none";
     }
 
     function hideError() {
