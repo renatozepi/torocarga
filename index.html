@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Calculadora</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+      font-family: Inter, Arial, sans-serif;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: linear-gradient(135deg, #f3f0ff, #ffffff);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      color: #211536;
+    }
+
+    .app {
+      width: 100%;
+      max-width: 430px;
+      background: rgba(255, 255, 255, 0.92);
+      border-radius: 28px;
+      padding: 24px;
+      box-shadow: 0 24px 60px rgba(70, 40, 120, 0.18);
+      border: 1px solid rgba(110, 70, 180, 0.12);
+    }
+
+    h1 {
+      margin: 0 0 22px;
+      font-size: 28px;
+      letter-spacing: -0.8px;
+      text-align: center;
+    }
+
+    .field {
+      margin-bottom: 16px;
+    }
+
+    .title {
+      font-size: 15px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .input-btn,
+    button {
+      width: 100%;
+      border: 0;
+      outline: none;
+      border-radius: 18px;
+      font-size: 16px;
+    }
+
+    .input-btn {
+      min-height: 56px;
+      padding: 16px;
+      background: #f6f2ff;
+      color: #32204f;
+      text-align: left;
+      cursor: pointer;
+      border: 1px solid #e4d9ff;
+    }
+
+    .input-btn.empty {
+      color: #9a8fb2;
+    }
+
+    .cargo {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      background: #f6f2ff;
+      padding: 7px;
+      border-radius: 18px;
+      border: 1px solid #e4d9ff;
+    }
+
+    .cargo button {
+      padding: 13px 8px;
+      background: transparent;
+      color: #6c5b86;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    .cargo button.active {
+      background: #6f3df4;
+      color: white;
+      box-shadow: 0 10px 24px rgba(111, 61, 244, 0.28);
+    }
+
+    .calculate {
+      margin-top: 10px;
+      padding: 17px;
+      background: #211536;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+      box-shadow: 0 14px 30px rgba(33, 21, 54, 0.22);
+    }
+
+    .result {
+      margin-top: 18px;
+      padding: 18px;
+      border-radius: 20px;
+      background: #f6f2ff;
+      border: 1px solid #e4d9ff;
+      text-align: center;
+      display: none;
+    }
+
+    .price {
+      font-size: 36px;
+      font-weight: 900;
+      margin-top: 4px;
+    }
+
+    .small {
+      font-size: 14px;
+      color: #6c5b86;
+      margin-top: 4px;
+    }
+
+    .modal {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 12, 35, 0.62);
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 50;
+    }
+
+    .modal.show {
+      display: flex;
+    }
+
+    .modal-card {
+      width: 100%;
+      max-width: 520px;
+      background: white;
+      border-radius: 26px;
+      padding: 16px;
+      box-shadow: 0 28px 80px rgba(0, 0, 0, 0.3);
+    }
+
+    .modal-top {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .modal-title {
+      font-size: 20px;
+      font-weight: 900;
+      flex: 1;
+    }
+
+    .close {
+      width: 42px;
+      height: 42px;
+      background: #f2edf9;
+      color: #211536;
+      cursor: pointer;
+      font-weight: 900;
+    }
+
+    #searchBox {
+      width: 100%;
+      height: 50px;
+      border: 1px solid #e4d9ff;
+      background: #f6f2ff;
+      border-radius: 16px;
+      padding: 0 14px;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    #map {
+      width: 100%;
+      height: 360px;
+      border-radius: 20px;
+      overflow: hidden;
+      background: #eeeeee;
+    }
+
+    .use {
+      margin-top: 12px;
+      padding: 15px;
+      background: #6f3df4;
+      color: white;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .error {
+      margin-top: 14px;
+      color: #b00020;
+      font-size: 14px;
+      text-align: center;
+      display: none;
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <h1>Calculadora</h1>
+
+    <div class="field">
+      <div class="title">Origen</div>
+      <button id="originBtn" class="input-btn empty" onclick="openPicker('origin')">Seleccionar</button>
+    </div>
+
+    <div class="field">
+      <div class="title">Destino</div>
+      <button id="destinationBtn" class="input-btn empty" onclick="openPicker('destination')">Seleccionar</button>
+    </div>
+
+    <div class="field">
+      <div class="title">Carga</div>
+      <div class="cargo">
+        <button type="button" class="active" data-load="light" onclick="setLoad('light')">Ligera</button>
+        <button type="button" data-load="medium" onclick="setLoad('medium')">Media</button>
+        <button type="button" data-load="heavy" onclick="setLoad('heavy')">Pesada</button>
+      </div>
+    </div>
+
+    <button class="calculate" onclick="calculate()">Calcular</button>
+
+    <div id="error" class="error"></div>
+
+    <div id="result" class="result">
+      <div class="title">Total</div>
+      <div id="price" class="price">S/ 0</div>
+      <div id="distance" class="small"></div>
+    </div>
+  </main>
+
+  <section id="modal" class="modal">
+    <div class="modal-card">
+      <div class="modal-top">
+        <div id="modalTitle" class="modal-title">Origen</div>
+        <button class="close" onclick="closePicker()">×</button>
+      </div>
+
+      <input id="searchBox" type="text" placeholder="Dirección" />
+      <div id="map"></div>
+      <button class="use" onclick="saveLocation()">Usar</button>
+    </div>
+  </section>
+
+  <script>
+    let map;
+    let marker;
+    let autocomplete;
+    let geocoder;
+    let directionsService;
+
+    let activeField = null;
+    let selectedTemp = null;
+
+    const locations = {
+      origin: null,
+      destination: null
+    };
+
+    let loadType = "light";
+
+    const rates = {
+      light: 16,
+      medium: 24,
+      heavy: 32
+    };
+
+    function initMaps() {
+      geocoder = new google.maps.Geocoder();
+      directionsService = new google.maps.DirectionsService();
+
+      const defaultCenter = { lat: -12.0464, lng: -77.0428 };
+
+      map = new google.maps.Map(document.getElementById("map"), {
+        center: defaultCenter,
+        zoom: 13,
+        mapTypeControl: false,
+        streetViewControl: false,
+        fullscreenControl: false
+      });
+
+      marker = new google.maps.Marker({
+        map,
+        position: defaultCenter,
+        draggable: true
+      });
+
+      marker.addListener("dragend", () => {
+        const pos = marker.getPosition();
+
+        setTempLocation({
+          lat: pos.lat(),
+          lng: pos.lng()
+        }, true);
+      });
+
+      map.addListener("click", (event) => {
+        setTempLocation({
+          lat: event.latLng.lat(),
+          lng: event.latLng.lng()
+        }, true);
+      });
+
+      autocomplete = new google.maps.places.Autocomplete(
+        document.getElementById("searchBox"),
+        {
+          fields: ["geometry", "formatted_address", "name"]
+        }
+      );
+
+      autocomplete.addListener("place_changed", () => {
+        const place = autocomplete.getPlace();
+
+        if (!place.geometry || !place.geometry.location) return;
+
+        const position = {
+          lat: place.geometry.location.lat(),
+          lng: place.geometry.location.lng()
+        };
+
+        selectedTemp = {
+          address: place.formatted_address || place.name || "Ubicación",
+          lat: position.lat,
+          lng: position.lng
+        };
+
+        marker.setPosition(position);
+        map.setCenter(position);
+        map.setZoom(16);
+      });
+    }
+
+    function openPicker(field) {
+      activeField = field;
+
+      document.getElementById("modalTitle").textContent =
+        field === "origin" ? "Origen" : "Destino";
+
+      document.getElementById("searchBox").value = "";
+
+      const saved = locations[field];
+
+      const position = saved
+        ? { lat: saved.lat, lng: saved.lng }
+        : { lat: -12.0464, lng: -77.0428 };
+
+      selectedTemp = saved
+        ? { ...saved }
+        : {
+            address: "",
+            lat: position.lat,
+            lng: position.lng
+          };
+
+      document.getElementById("modal").classList.add("show");
+
+      setTimeout(() => {
+        google.maps.event.trigger(map, "resize");
+        map.setCenter(position);
+        marker.setPosition(position);
+
+        if (saved) {
+          document.getElementById("searchBox").value = saved.address;
+          map.setZoom(16);
+        }
+      }, 100);
+    }
+
+    function closePicker() {
+      document.getElementById("modal").classList.remove("show");
+      activeField = null;
+      selectedTemp = null;
+    }
+
+    function setTempLocation(position, reverse = false) {
+      selectedTemp = {
+        address: "Ubicación seleccionada",
+        lat: position.lat,
+        lng: position.lng
+      };
+
+      marker.setPosition(position);
+      map.setCenter(position);
+
+      if (!reverse) return;
+
+      geocoder.geocode({ location: position }, (results, status) => {
+        if (status === "OK" && results[0]) {
+          selectedTemp.address = results[0].formatted_address;
+          document.getElementById("searchBox").value = selectedTemp.address;
+        }
+      });
+    }
+
+    function saveLocation() {
+      if (!activeField || !selectedTemp) return;
+
+      locations[activeField] = { ...selectedTemp };
+
+      const btn = document.getElementById(
+        activeField === "origin" ? "originBtn" : "destinationBtn"
+      );
+
+      btn.textContent = selectedTemp.address || "Ubicación seleccionada";
+      btn.classList.remove("empty");
+
+      closePicker();
+    }
+
+    function setLoad(type) {
+      loadType = type;
+
+      document.querySelectorAll(".cargo button").forEach((btn) => {
+        btn.classList.toggle("active", btn.dataset.load === type);
+      });
+    }
+
+    function calculate() {
+      hideError();
+
+      if (!locations.origin || !locations.destination) {
+        showError("Completa origen y destino.");
+        return;
+      }
+
+      directionsService.route(
+        {
+          origin: {
+            lat: locations.origin.lat,
+            lng: locations.origin.lng
+          },
+          destination: {
+            lat: locations.destination.lat,
+            lng: locations.destination.lng
+          },
+          travelMode: google.maps.TravelMode.DRIVING
+        },
+        (response, status) => {
+          if (status !== "OK") {
+            showError("No se pudo calcular la ruta.");
+            return;
+          }
+
+          const legs = response.routes[0].legs;
+          const meters = legs.reduce((sum, leg) => sum + leg.distance.value, 0);
+          const km = meters / 1000;
+
+          const raw = km * rates[loadType];
+          const minimum = Math.max(raw, 40);
+          const rounded = Math.round(minimum / 5) * 5;
+
+          document.getElementById("price").textContent = `S/ ${rounded}`;
+          document.getElementById("distance").textContent = `${km.toFixed(1)} km`;
+          document.getElementById("result").style.display = "block";
+        }
+      );
+    }
+
+    function showError(message) {
+      const error = document.getElementById("error");
+      error.textContent = message;
+      error.style.display = "block";
+      document.getElementById("result").style.display = "none";
+    }
+
+    function hideError() {
+      document.getElementById("error").style.display = "none";
+    }
+  </script>
+
+  <script
+    src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDtp-xgHOutr2HgpXD5p8NwG4vsIG-oDAg&libraries=places&callback=initMaps&loading=async"
+    async
+    defer>
+  </script>
+</body>
+</html>
